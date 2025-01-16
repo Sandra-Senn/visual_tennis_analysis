@@ -1,0 +1,14 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+
+nc: 2
+names: ['left side', 'player']
+
+roboflow:
+  workspace: alex-vdfww
+  project: court-players
+  version: 5
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/alex-vdfww/court-players/dataset/5
