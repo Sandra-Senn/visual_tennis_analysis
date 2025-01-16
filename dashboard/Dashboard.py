@@ -1,5 +1,6 @@
-# streamlit run Dashboard.py
- 
+# Um das Dashboard zu öffnen Code ausführen und folgender Befehl in das Terminal einfügen (streamlit run Dashboard.py). Wenn dies nicht funktioniert probieren Sie folgender Befehl (python -m streamlit run Dashboard.py)
+
+# Importieren der benötigten Bibliotheken
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,13 +12,14 @@ import numpy as np
 # Daten laden
 csv_data = pd.read_csv("Match_Daten.csv")
    
-# Punktestand-Funktion
+# Name der Spieler
 players = ["Raphael", "Adrian"]
 
 player_names = {
     0: 'Adrian',
     1: 'Raphael'
 }
+# Von Hand ersteller Intervallbereich der Frames für den Punktestand
 Punktestand = [
     (0, 22.7, {"sets": [0, 0], "points": [0, 0]}),
     (22.8, 40.5, {"sets": [0, 0], "points": [0, 15]}),
@@ -37,18 +39,21 @@ Punktestand = [
     (313.1, 316, {"sets": [3, 0], "points": [0, 0]}),
 ]
  
+# Funktion zur Entnehmung des Spielstandes aus den Intervallen
 def get_current_score(current_time):
     for start_time, end_time, score_data in Punktestand:
         if start_time <= current_time < end_time:
             return score_data
     return {"sets": [0, 0], "points": [0, 0]}
 
+# Funktion zur Erkennung der aktuellen Position eines Spielers wenn der Gegner den Ball schlägt. Zuteilung der Zonen (grün, gelb, rot) basierend auf der Position des Spielers
 def count_zone_occurrences(data, game, zone, object_id):
-    # Filtere Daten für das angegebene Spiel
+    
+    # Filtere Daten für das ausgewählte Game und den schlagenden Spieler
     game_data = data[(data["Game"] == game) & (data["Spieler schlägt"] == "Ja") & (data["Object.ID"] == object_id)]
-
     count = 0
 
+    # Iteriere über jeden Schlag des Gegners
     for _, shot in game_data.iterrows():
         frame = shot["Frame"]
         player_data = data[(data["Frame"] == frame) & (data["Object.ID"] == 1 - object_id)]
@@ -108,7 +113,7 @@ def count_zone_occurrences(data, game, zone, object_id):
 
     return count
  
-# Funktion zur Erstellung der Kennzahlen-Tabelle (Spieler als Spalten)
+# Funktion zur Erstellung der Kennzahlen-Tabelle Insgesamt
 def calculate_metrics_transposed(data):
     metrics = {
         "Kennzahl": [
@@ -129,6 +134,7 @@ def calculate_metrics_transposed(data):
     # Daten sortieren
     filtered_data = filtered_data.sort_values(by=['Object.ID', 'Frame'])
     
+    # Filtern nach Frames in der ein Schlag stattfindet
     spieler_schlägt = filtered_data[filtered_data['Spieler schlägt'] == 'Ja']
 
     # Berechnung der Differenzen nur bei aufeinanderfolgenden Frames
@@ -144,8 +150,8 @@ def calculate_metrics_transposed(data):
     # Gesamtdistanz pro Spieler berechnen
     gesamt_distanz = filtered_data.groupby('Object.ID')['Distanz'].sum().reset_index()
     gesamt_distanz.columns = ['Object.ID', 'Gesamtstrecke (m)']
-
-    
+  
+    # Kenndataen für jeden Spieler berechnen
     for obj_id in data['Object.ID'].unique():
         # Daten des aktuellen Spielers
         player_data = data[(data['Object.ID'] == obj_id) & (data['Spiel läuft'] == 'Ja')]
@@ -153,10 +159,13 @@ def calculate_metrics_transposed(data):
         # Durchschnittliche Geschwindigkeit
         avg_speed = player_data['Speed'].mean()
 
+        # Durchschnittliche Geschwindigkeit bei Schlag
         avg_speed_schlag = spieler_schlägt[spieler_schlägt['Object.ID'] == obj_id]['Speed'].mean()
+        
         # Maximalgeschwindigkeit
         max_speed = player_data['Speed'].max()
         
+        # Anzahl an Aufenthalten in der Zone Grün, Gelb, Rot bei Schlag des Gegners während des gesamten Spiels
         zone_grün_1 = count_zone_occurrences(data, "1", "grün", 1- obj_id)
         zone_grün_2 = count_zone_occurrences(data, "2", "grün", 1- obj_id)
         zone_grün_3 = count_zone_occurrences(data, "3", "grün", 1- obj_id)
@@ -173,7 +182,7 @@ def calculate_metrics_transposed(data):
         zone_rot = zone_rot_1 + zone_rot_2 + zone_rot_3
 
         # Spielername abrufen
-        player_name = player_names.get(obj_id, f"Spieler {obj_id}")  # Name für Spieler anhand der Object.ID
+        player_name = player_names.get(obj_id, f"Spieler {obj_id}")  
         
         # Spielerbezogene Gesamtdistanz
         player_gesamt_distanz = gesamt_distanz[gesamt_distanz['Object.ID'] == obj_id]['Gesamtstrecke (m)'].values[0]
@@ -195,6 +204,7 @@ def calculate_metrics_transposed(data):
     return metrics_df
 
  
+# Funktion zur Erstellung der Kennzahlen-Tabelle für ein bestimmtes Game
 def calculate_metrics_transposed_games(data, games):
     metrics = {
         "Kennzahl": [
@@ -209,7 +219,7 @@ def calculate_metrics_transposed_games(data, games):
         ]
     }
     
-    # Daten filtern (Zeilen mit 'Spiel läuft nicht' entfernen)
+    # Daten filtern nach bestimmtes Game
     filtered_data = data[(data['Game']== games)]
 
     # Daten sortieren
@@ -225,7 +235,7 @@ def calculate_metrics_transposed_games(data, games):
     # Euklidische Distanz berechnen
     filtered_data['Distanz'] = np.sqrt(filtered_data['Delta.X']**2 + filtered_data['Delta.Y']**2)
 
-    #
+    # Filtern nach Frames in der ein Schlag stattfindet
     spieler_schlägt = filtered_data[filtered_data['Spieler schlägt'] == 'Ja']
 
     # Distanz pro Spiel und Spieler berechnen
@@ -233,7 +243,7 @@ def calculate_metrics_transposed_games(data, games):
     distanz_pro_game.columns = ['Object.ID', 'Game', 'Distanz (m)']
 
     
-    
+    # Kenndataen für jeden Spieler berechnen
     for obj_id in filtered_data['Object.ID'].unique():
         # Daten des aktuellen Spielers
         player_data = filtered_data[(filtered_data['Object.ID'] == obj_id)]
@@ -244,8 +254,10 @@ def calculate_metrics_transposed_games(data, games):
         # Maximalgeschwindigkeit
         max_speed = player_data['Speed'].max()
         
+        # Durchschnittliche Geschwindigkeit bei Schlag
         avg_speed_schlag = spieler_schlägt[spieler_schlägt['Object.ID'] == obj_id]['Speed'].mean()
         
+        # Anzahl an Aufenthalten in den Zonen Grün, Gelb, Rot bei Schlag des Gegners
         zone_grün = count_zone_occurrences(data, games,"grün", 1- obj_id,)
         zone_gelb = count_zone_occurrences(data, games,"gelb", 1- obj_id)
         zone_rot = count_zone_occurrences(data, games,"rot", 1-obj_id)
@@ -280,7 +292,7 @@ def calculate_metrics_transposed_games(data, games):
     metrics_df.set_index("Kennzahl", inplace=True)
     return metrics_df
 
-# Funktion zur Erstellung der kombinierten Heatmap
+# Funktion zur Erstellung der Heatmap
 def combined_heatmap(data, current_frame):
     # Erstellen der Grafik
     fig, ax = plt.subplots(figsize=(12, 12))
@@ -292,7 +304,7 @@ def combined_heatmap(data, current_frame):
     service_line_dist = 6.40  
     net_position = 0 
     
-    # Zusätzlicher Platz um das Feld (3 Meter)
+    # Möglichkeit zur Anpassung des Tennisfelds
     extra_space = 0
 
     
@@ -345,26 +357,10 @@ def combined_heatmap(data, current_frame):
     return fig
 
  
-import matplotlib.pyplot as plt
 
+# Funktion für die Erstellung der Geschwindigkeitsdiagramme für ein Game
 def plot_speed_per_game(data, game, player_ids, frame):
-    """
-    Erstellt Geschwindigkeit-Diagramme für alle angegebenen Spieler in einem Plot.
-
-    Parameters:
-        data: pandas.DataFrame
-            Die Daten mit Geschwindigkeit, Frame und Spieler-IDs.
-        game: str
-            Das Spiel, das ausgewertet werden soll (z.B. "1").
-        player_ids: list
-            Liste der Object.IDs der Spieler, die geplottet werden sollen.
-        frame: int
-            Der Frame, bei dem ein Punkt hervorgehoben werden soll.
-
-    Returns:
-        fig: matplotlib.figure.Figure
-            Das erstellte Diagramm als Matplotlib-Figure.
-    """
+   
     # Daten für das angegebene Spiel filtern
     data_game = data[data["Game"] == game]
 
@@ -411,7 +407,7 @@ def plot_speed_per_game(data, game, player_ids, frame):
                 markersize=8, 
                 markeredgecolor="black", 
                 markerfacecolor=marker_color, 
-                label=f"Speed in Frame {frame} ({name})"
+                label=f"Geschwindigkeit im ausgewählten Zeitpunkt von ({name})"
             )
 
     # Achsentitel und Legende
@@ -426,22 +422,10 @@ def plot_speed_per_game(data, game, player_ids, frame):
     return fig
 
  
-import matplotlib.pyplot as plt
 
+# Funktion zur Erstellung des Geschwindigkeitsdiagramms für das gesamte Spiel
 def plot_speed_gesamt(data, player_ids):
-    """
-    Erstellt ein Geschwindigkeit-Diagramm für mehrere Spieler in einem Plot.
-
-    Parameters:
-        data: pandas.DataFrame
-            Die Daten mit Geschwindigkeit, Frame und Spieler-IDs.
-        player_ids: list
-            Liste der Object.IDs der Spieler, die geplottet werden sollen.
-
-    Returns:
-        fig: matplotlib.figure.Figure
-            Das erstellte Diagramm als Matplotlib-Figure.
-    """
+    
     # Erstelle die Abbildung
     fig, ax = plt.subplots(figsize=(10, 6))
     
@@ -477,19 +461,25 @@ def plot_speed_gesamt(data, player_ids):
     plt.tight_layout()
     return fig
 
+
+# Funktion zur berechnung des Schnittpunkts für die Winkelhalbierende
 def calculate_intersection_point(A, B, C):
     """
     Berechnet den Schnittpunkt D auf der Seite BC, wo die Winkelhalbierende vom Punkt A auf BC trifft.
     """
+    # Vektoren AB und AC berechnen
     vector_AB = (B[0] - A[0], B[1] - A[1])
     vector_AC = (C[0] - A[0], C[1] - A[1])
 
+    # Längen der Vektoren AB und AC berechnen
     length_AB = math.sqrt(vector_AB[0]**2 + vector_AB[1]**2)
     length_AC = math.sqrt(vector_AC[0]**2 + vector_AC[1]**2)
 
+    # Normalisierte Vektoren AB und AC berechnen
     vector_AB_normalized = (vector_AB[0] / length_AB, vector_AB[1] / length_AB)
     vector_AC_normalized = (vector_AC[0] / length_AC, vector_AC[1] / length_AC)
 
+    # Vektor des Winkelhalbierenden berechnen
     vector_bisector = (vector_AB_normalized[0] + vector_AC_normalized[0], vector_AB_normalized[1] + vector_AC_normalized[1])
 
     # Schnittpunkt D berechnen
@@ -498,6 +488,7 @@ def calculate_intersection_point(A, B, C):
     Dy = A[1] + t * vector_bisector[1]
     return (Dx, Dy)
 
+# Funktion zur Visualisierung der Winkelhalbierenden
 def visualize_winkelhalbierende_per_shot(data, game, shot_index):
     """
     Visualisiert die Winkelhalbierende, Spielerpositionen und das Tennisfeld.
@@ -509,8 +500,6 @@ def visualize_winkelhalbierende_per_shot(data, game, shot_index):
     player_colors = {0: "red", 1: "blue"}  # Rot für Spieler 0, Blau für Spieler 1
     player_names = {0: "Adrian", 1: "Raphael"}  # Namen für die Spieler
     
-    
-    
     # Prüfen, ob der Schlag-Index gültig ist
     if shot_index < 0 or shot_index >= len(shots):
         st.error(f"Ungültiger Schlag-Index: {shot_index}.")
@@ -520,17 +509,19 @@ def visualize_winkelhalbierende_per_shot(data, game, shot_index):
     current_shot = shots.iloc[shot_index]
     frame = current_shot["Frame"]
     object_id = current_shot["Object.ID"]  # Der schlagende Spieler
-    opponent_id = 1 - object_id  # Der Gegner (umgekehrt)
+    opponent_id = 1 - object_id  # Der Gegner 
     
-    # Bestimme Farbe und Name
-    color1 = player_colors.get(object_id, "black")  # Standardfarbe ist Schwarz
-    color2 = player_colors.get(opponent_id, "black")  # Standardfarbe ist Schwarz
-    name1 = player_names.get(object_id, f"Spieler {object_id}")  # Standardname
-    name2 = player_names.get(opponent_id, f"Spieler {opponent_id}")  # Standardname
+    # Bestimmung der Farbe und Name des schlagenden Spielers und des Gegners
+    color1 = player_colors.get(object_id, "black")  
+    color2 = player_colors.get(opponent_id, "black")  
+    name1 = player_names.get(object_id, f"Spieler {object_id}")  
+    name2 = player_names.get(opponent_id, f"Spieler {opponent_id}")  
+    
     # Spieler- und Gegnerdaten für den aktuellen Frame
     player = game_data[(game_data["Frame"] == frame) & (game_data["Object.ID"] == object_id)]
     opponent = game_data[(game_data["Frame"] == frame) & (game_data["Object.ID"] == opponent_id)]
  
+    # Prüfen, ob gültige Positionen für den aktuellen Schlag gefunden wurden
     if player.empty or opponent.empty:
         st.error("Keine gültigen Positionen für den aktuellen Schlag gefunden.")
         return None
@@ -539,6 +530,7 @@ def visualize_winkelhalbierende_per_shot(data, game, shot_index):
     A = (player["Transformed.X"].iloc[0], player["Transformed.Y"].iloc[0])  # Spieler
     player_2_pos = (opponent["Transformed.X"].iloc[0], opponent["Transformed.Y"].iloc[0])  # Gegner
      
+    # Berechnung der Positionen B, C, X und Z basierend auf der Position des schlagenden Spielers
     if A[0] >= -2 and A[0] <= 2:
     
         if object_id == 0:
@@ -599,7 +591,7 @@ def visualize_winkelhalbierende_per_shot(data, game, shot_index):
     service_line_dist = 6.40  
     net_position = 0 
     
-    # Zusätzlicher Platz um das Feld (3 Meter)
+    # Möglichkeit zur Anpassung des Tennisfelds
     extra_space = 0
 
     
@@ -666,16 +658,17 @@ def visualize_winkelhalbierende_per_shot(data, game, shot_index):
     return fig
  
  
-# Streamlit App
-# Seiten-Auswahl
+# Seiten-Auswahl im Streamlit-Dashboard
 page = st.sidebar.selectbox("Wähle eine Seite:", ["Gesamtübersicht", "Game 1", "Game 2", "Game 3"])
  
+# Hauptbereich des Dashboards
 if page == "Gesamtübersicht":
     st.title("Tennis Analyse")
  
     # Slider für Videozeit
     current_time = st.slider("Videozeit (in Sekunden):", min_value=0.0, max_value=315.0, step=0.1, value=0.0)
     current_frame = int(current_time * 30)
+    
     # Video aktualisiert sich basierend auf dem Slider
     st.video("static/match.mp4", start_time=int(current_time))
  
@@ -715,20 +708,20 @@ if page == "Gesamtübersicht":
     fig = combined_heatmap(csv_data, current_frame)
     st.pyplot(fig)
     
+    # Geschwindigkeitsgrafik anzeigen
     st.markdown("### Geschwindigkeit der Spieler")
     fig_speed_0 = plot_speed_gesamt(csv_data, player_ids=[0, 1])
     st.pyplot(fig_speed_0)
     
- 
     # Kennzahlen berechnen
     st.markdown("### Kennzahlen für die Spieler im gesamten Spiel")
     metrics_table_transposed = calculate_metrics_transposed(csv_data)
     st.table(metrics_table_transposed)
    
+# Game-spezifische Analyse
 elif page == "Game 1":
     st.title("Analyse für das Game 1")
     
-   
     # Schlag-Regler
     game_shots = csv_data[(csv_data["Game"] == "1") & (csv_data["Spieler schlägt"] == "Ja")]
     shot_count = len(game_shots)
@@ -741,10 +734,9 @@ elif page == "Game 1":
     # Visualisierung mit dynamischer Beschriftung
     st.write(f"Ausgewählter Schlag: Schlag bei Sekunde {selected_second:.2f}")
     
-   
-    
-        
+    # Video aktualisiert sich basierend auf dem Slider
     st.video("static/match.mp4", start_time=int(selected_second)) 
+    
     # Punktestand berechnen
     score_data = get_current_score(selected_second)
     sets = score_data["sets"]
@@ -782,19 +774,19 @@ elif page == "Game 1":
     if fig_wink_1:
         st.pyplot(fig_wink_1)
     
-    data_game1 = csv_data[csv_data["Game"] == "1"]
+    
     # Heatmap anzeigen
+    data_game1 = csv_data[csv_data["Game"] == "1"]
     st.markdown("### Heatmap der Spielerpositionen in Game 1")
     fig = combined_heatmap(data_game1, selected_frame)
     st.pyplot(fig)
     
-  # Geschwindigkeit über Zeit für zwei Spieler nebeneinander
+    # Geschwindigkeitsgrafik anzeigen
     st.markdown("### Geschwindigkeit der Spieler in Game 1")
     fig_speed_1 = plot_speed_per_game(csv_data, game="1", player_ids=[0, 1], frame=selected_frame)
     st.pyplot(fig_speed_1)
    
-    
-     # Kennzahlen berechnen
+    # Kennzahlen berechnen
     st.markdown("### Kennzahlen für Spieler in Game 1")
     metrics_table_transposed = calculate_metrics_transposed_games(csv_data, "1")
     st.table(metrics_table_transposed)
@@ -814,10 +806,9 @@ elif page == "Game 2":
     # Visualisierung mit dynamischer Beschriftung
     st.write(f"Ausgewählter Schlag: Schlag bei Sekunde {selected_second:.2f}")
     
-   
-    
-        
+    # Video aktualisiert sich basierend auf dem Slider
     st.video("static/match.mp4", start_time=int(selected_second)) 
+    
     # Punktestand berechnen
     score_data = get_current_score(selected_second)
     sets = score_data["sets"]
@@ -854,19 +845,19 @@ elif page == "Game 2":
     fig_wink_1 = visualize_winkelhalbierende_per_shot(csv_data, game="2", shot_index=selected_shot)
     if fig_wink_1:
         st.pyplot(fig_wink_1)
-    
-    data_game1 = csv_data[csv_data["Game"] == "2"]
+     
     # Heatmap anzeigen
+    data_game2 = csv_data[csv_data["Game"] == "2"] 
     st.markdown("### Heatmap der Spielerpositionen in Game 2")
-    fig = combined_heatmap(data_game1, selected_frame)
+    fig = combined_heatmap(data_game2, selected_frame)
     st.pyplot(fig)
     
-  # Geschwindigkeit über Zeit für zwei Spieler nebeneinander
+    # Geschwindigkeitsgrafik anzeigen
     st.markdown("### Geschwindigkeit der Spieler in Game 2")
     fig_speed_2 = plot_speed_per_game(csv_data, game="2", player_ids=[0, 1], frame=selected_frame)
     st.pyplot(fig_speed_2)
     
-     # Kennzahlen berechnen
+    # Kennzahlen berechnen
     st.markdown("### Kennzahlen für Spieler in Game 2")
     metrics_table_transposed = calculate_metrics_transposed_games(csv_data, "2")
     st.table(metrics_table_transposed)
@@ -883,11 +874,13 @@ elif page == "Game 3":
     selected_frame = game_shots.iloc[selected_shot ]["Frame"]  # Index beginnt bei 0
     selected_second = selected_frame / 30
     
-     # Visualisierung mit dynamischer Beschriftung
+    # Visualisierung mit dynamischer Beschriftung
     st.write(f"Ausgewählter Schlag: Schlag bei Sekunde {selected_second:.2f}")
     
-    
+    # Video aktualisiert sich basierend auf dem Slider
     st.video("static/match.mp4", start_time=int(selected_second))
+    
+    # Punktestand berechnen
     score_data = get_current_score(selected_second)
     sets = score_data["sets"]
     points = score_data["points"]
@@ -926,19 +919,20 @@ elif page == "Game 3":
     if fig_wink_3:
         st.pyplot(fig_wink_3)
         
-    
-    data_game3 = csv_data[csv_data["Game"] == "3"]
     # Heatmap anzeigen
+    data_game3 = csv_data[csv_data["Game"] == "3"]
     st.markdown("### Heatmap der Spielerpositionen in Game 3")
     fig = combined_heatmap(data_game3, selected_frame)
     st.pyplot(fig)
     
-
     # Geschwindigkeit über Zeit für zwei Spieler nebeneinander
     st.markdown("### Geschwindigkeit der Spieler in Game 3")
     fig_speed_3 = plot_speed_per_game(csv_data, game="3", player_ids=[0, 1], frame=selected_frame)
     st.pyplot(fig_speed_3)
     
+    # Kennzahlen berechnen
     st.markdown("### Kennzahlen für Spieler in Game 3")
     metrics_table_transposed = calculate_metrics_transposed_games(csv_data, "3")
     st.table(metrics_table_transposed)
+    
+    
