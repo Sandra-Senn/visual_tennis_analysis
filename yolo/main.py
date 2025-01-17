@@ -147,7 +147,7 @@ def main():
     for i, frame in enumerate(output_video_frames):
         cv2.putText(frame, f"Frame: {i}",(10,30),cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    save_video(output_video_frames, "yolo/output_videos/output_video_1.avi")
+    save_video(output_video_frames, "yolo/output_videos/output_video_1.mp4")
 
 if __name__ == "__main__":
     main()
